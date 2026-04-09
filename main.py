@@ -1,3 +1,10 @@
+"""
+Main entry point for the Bookvoed parser application.
+
+This module provides the command-line interface for running the parser
+with configurable parameters.
+"""
+
 import asyncio
 import argparse
 
@@ -5,7 +12,20 @@ from core.parser import BookvoedParser
 from logging_config import logger
 
 
-async def main():
+async def main() -> None:
+    """Main entry point for the Bookvoed parser.
+    
+    Parses command-line arguments, initializes the parser, and starts
+    the parsing process. Handles graceful shutdown on interrupts.
+    
+    Command-line arguments:
+        --start-page: Starting page number for catalog parsing (default: 1)
+        --concurrent: Number of concurrent book parsing tasks (default: 30)
+        --delay: Delay between HTTP requests in seconds (default: 0.1)
+        
+    Example:
+        python main.py --start-page 100 --concurrent 50 --delay 0.2
+    """
     parser = argparse.ArgumentParser(description='Parser for bookvoed.ru')
     parser.add_argument('--start-page', type=int, default=1,
                        help='Starting page number')

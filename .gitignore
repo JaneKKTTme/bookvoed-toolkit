@@ -1,0 +1,8 @@
+/__pycache__
+/core/__pycache__
+/models/__pycache__
+/parsers/__pycache__
+/storage/__pycache__
+/venv
+*.log
+books.parquet

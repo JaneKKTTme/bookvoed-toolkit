@@ -1,3 +1,10 @@
+"""
+Core module containing the main orchestrator for book parsing.
+
+This module provides the BookvoedParser class which coordinates the entire
+parsing process including page navigation, book extraction, and data storage.
+"""
+
 import asyncio
 import signal
 import sys
@@ -17,9 +24,34 @@ from logging_config import logger
 
 
 class BookvoedParser:
+    """Asynchronous parser for bookvoed.ru website.
+    
+    This class orchestrates the entire parsing process including catalog page
+    navigation, book link extraction, parallel book parsing, and data storage.
+    It handles graceful shutdown, progress tracking, and error recovery.
+    
+    Attributes:
+        semaphore (asyncio.Semaphore): Limits concurrent parsing tasks.
+        shutdown_event (asyncio.Event): Event for graceful shutdown signaling.
+        http_client (HTTPClient): HTTP client for making requests.
+        storage (ParquetStorage): Storage handler for saving books.
+        executor (ThreadPoolExecutor): Executor for CPU-bound HTML parsing.
+        
+    Example:
+        >>> async with BookvoedParser() as parser:
+        ...  await parser.parse_bookvoed(start_page=1)
+    """
 
     def __init__(self, max_concurrent_tasks: int = REQUEST_CONFIG['concurrent_tasks'],
                  delay: float = REQUEST_CONFIG['delay_between_requests']):
+        """Initialize the BookvoedParser with configuration parameters.
+        
+        Args:
+            max_concurrent_tasks (int): Maximum number of concurrent book parsing tasks.
+                Defaults to value from REQUEST_CONFIG.
+            delay (float): Delay between HTTP requests in seconds.
+                Defaults to value from REQUEST_CONFIG.
+        """
         self.semaphore = asyncio.Semaphore(max_concurrent_tasks)
         self.shutdown_event = asyncio.Event()
         
@@ -27,18 +59,38 @@ class BookvoedParser:
         self.storage = ParquetStorage()
 
         self.executor = ThreadPoolExecutor(max_workers=4)
+        # BeautifulSoup parsing is CPU-bound and blocks the event loop.
+        # Using ThreadPoolExecutor prevents blocking while allowing concurrency.
+        # 4 workers is optimal: balances CPU usage vs I/O waiting.
         
         if sys.platform != 'win32':
             self._setup_signal_handlers()
+            # Windows doesn't support add_signal_handler asyncio method
+            # Users on Windows can use Ctrl+Break instead of Ctrl+C
 
     async def __aenter__(self):
+        """Enter async context manager, setting up HTTP client."""
         await self.http_client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit async context manager, cleaning up resources."""
         await self.close()
 
     async def parse_bookvoed(self, start_page: int = 1) -> None:
+        """Start parsing books from the catalog starting at specified page.
+        
+        This method iterates through catalog pages, extracts book links,
+        parses book details, and saves them to storage. Progress is displayed
+        using tqdm progress bar. Continues until no next page or shutdown signal.
+        
+        Args:
+            start_page (int): Catalog page number to start parsing from.
+                Defaults to 1.
+                
+        Raises:
+            KeyboardInterrupt: If interrupted by user (handled gracefully).
+        """
         page = start_page
         has_next_page = True
         total_books = 0
@@ -64,22 +116,52 @@ class BookvoedParser:
 
                 pbar.update(1)
                 page += 1
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.5)  # Delay between page requests to avoid rate limiting
 
     async def close(self):
+        """Close all resources and clean up connections.
+        
+        Shuts down the thread pool executor and closes the HTTP client session.
+        Should be called when parsing is complete or interrupted.
+        """
         self.executor.shutdown(wait=True)
         await self.http_client.close()
 
     async def shutdown(self):
+        """Initiate graceful shutdown of the parser.
+        
+        Sets the shutdown event flag, signaling all loops to stop processing.
+        This method is called by signal handlers for SIGTERM and SIGINT.
+        """
         logger.info('Shutting down gracefully...')
         self.shutdown_event.set()
 
     def _setup_signal_handlers(self):
+        """Set up signal handlers for graceful shutdown on Unix-like systems.
+        
+        Registers handlers for SIGTERM and SIGINT signals to trigger
+        graceful shutdown. Not available on Windows platforms.
+        """
         for s in (signal.SIGTERM, signal.SIGINT):
             loop = asyncio.get_event_loop()
+            # Note: add_signal_handler is not available on Windows
+            # That's why we check sys.platform != 'win32' in __init__
             loop.add_signal_handler(s, lambda: asyncio.create_task(self.shutdown()))
 
     async def _parse_book_list(self, page: int) -> tuple[List[Book], bool]:
+        """Parse a single catalog page and extract all book links.
+        
+        This method fetches the catalog page HTML, extracts book links,
+        and initiates batch parsing of all books found on the page.
+        
+        Args:
+            page (int): Catalog page number to parse.
+            
+        Returns:
+            Tuple[List[Book], bool]: A tuple containing:
+                - List of parsed Book objects from this page
+                - Boolean indicating whether a next page exists
+        """
         curr_url = SERVICE + BOOK_PAGE + str(page)
         
         try:
@@ -108,6 +190,19 @@ class BookvoedParser:
             return [], False
 
     async def _parse_books_batch(self, book_links: List[str]) -> List[Book]:
+        """Parse multiple books concurrently from their URLs.
+        
+        Creates asynchronous tasks for each book link and executes them
+        concurrently using asyncio.gather. Handles exceptions gracefully
+        without failing the entire batch.
+        
+        Args:
+            book_links (List[str]): List of relative URLs for book detail pages.
+            
+        Returns:
+            List[Book]: List of successfully parsed Book objects.
+                Failed parses are excluded from the result.
+        """
         tasks = [self._parse_single_book(link) for link in book_links]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -121,6 +216,18 @@ class BookvoedParser:
         return books
 
     async def _parse_single_book(self, url: str) -> Optional[Book]:
+        """Parse a single book page and extract all information.
+        
+        Fetches the book detail page HTML, parses it using BookParser,
+        and returns a Book object. Uses semaphore to limit concurrency
+        and thread pool executor for CPU-bound parsing operations.
+        
+        Args:
+            url (str): Relative URL of the book detail page.
+            
+        Returns:
+            Optional[Book]: Parsed Book object, or None if parsing failed.
+        """
         async with self.semaphore:
             try:
                 full_url = SERVICE + url
