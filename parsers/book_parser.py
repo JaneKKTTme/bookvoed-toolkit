@@ -156,6 +156,12 @@ class BookParser:
             setattr(self.book, mapped_key, processed_value)
 
     def _extract_characteristics(self) -> dict:
+        """Extract book characteristics from the product table.
+    
+        Returns:
+            dict: Dictionary mapping characteristic names to values.
+                  Returns empty dict if no characteristics table found.
+        """
         characteristics = {}
 
         full_char_table = self.soup.find('div', class_='product-characteristics-full')
@@ -248,7 +254,7 @@ class BookParser:
             >>> parser._process_value('weight', '0.5 кг')
             0.5
             
-            >>> parser._process_value('edition', '1\\xa0000')
+            >>> parser._process_value('edition', '1\xa0000')
             1000
             
             >>> parser._process_value('author', 'Пушкин А.С.')

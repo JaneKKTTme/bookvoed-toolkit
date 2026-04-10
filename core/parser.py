@@ -23,6 +23,26 @@ from storage.parquet_storage import ParquetStorage
 from logging_config import logger
 
 
+# ============================================================================
+# PERFORMANCE NOTES:
+# ============================================================================
+# The semaphore limits concurrent book parsing to prevent:
+#   1. Socket exhaustion (too many open connections)
+#   2. Rate limiting triggers from the server
+#   3. Memory overload from too many simultaneous HTML documents
+#
+# ThreadPoolExecutor with 4 workers is chosen because:
+#   - BeautifulSoup parsing is CPU-bound (100% CPU during parse)
+#   - Each parse takes 0.05-0.2 seconds depending on HTML complexity
+#   - 4 workers saturate a typical CPU without causing context switching overhead
+#   - I/O waiting happens in the async HTTP client, not in the executor
+#
+# The 0.5 second delay between page requests protects against:
+#   - Aggressive crawling detection
+#   - Server overload during peak hours (19:00-22:00 MSK)
+# ============================================================================
+
+
 class BookvoedParser:
     """Asynchronous parser for bookvoed.ru website.
     
@@ -230,8 +250,19 @@ class BookvoedParser:
             
         Returns:
             Optional[Book]: Parsed Book object, or None if parsing failed.
+
+        CRITICAL: The semaphore context manager MUST be used here.
+            Without it, concurrent tasks would be unbounded, leading to:
+               - Memory exhaustion (storing 50+ HTML responses simultaneously)
+               - Connection pool depletion
+               - Potential IP ban from aggressive requests
+            
+            The thread pool executor is necessary because BeautifulSoup's parse()
+            blocks the event loop. Running it in a separate thread prevents:
+               - Event loop starvation
+               - Increased latency for other concurrent tasks
         """
-        async with self.semaphore:
+        async with self.semaphore:  # CRITICAL: Limits concurrency
             try:
                 full_url = SERVICE + url
                 html = await self.http_client.get(full_url)

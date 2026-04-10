@@ -99,10 +99,11 @@ class HTTPClient:
 			url (str): The URL to request.
 			
 		Returns:
-			Optional[str]: Response text if successful, None if failed.
+			Optional[str]: Response text if successful, None if HTTP error (4xx, 5xx)
 			
 		Raises:
 			aiohttp.ClientError: After exhausting all retry attempts for client errors.
+			aiohttp.ClientResponseError: For rate limiting after retries
 			asyncio.TimeoutError: If request times out after all retries.
 		
 		Note:
