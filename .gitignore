@@ -6,3 +6,5 @@
 /venv
 *.log
 books.parquet
+/tests/__pycache__
+/tests/fixtures/__pycache__
