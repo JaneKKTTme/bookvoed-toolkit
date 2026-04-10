@@ -94,13 +94,21 @@ class JsonLdParser:
             book.bookbinding = cls.FORMAT_MAP.get(item.get('bookFormat'), item.get('bookFormat', ''))
 
         if 'numberOfPages' in item:
-            book.number_of_pages = item.get('numberOfPages', '')
+            pages = item.get('numberOfPages', '')
+            try:
+                book.number_of_pages = int(pages)
+            except (ValueError, TypeError):
+                book.number_of_pages = pages
 
         if 'publisher' in item:
             book.publisher = item.get('publisher', '')
 
         if 'datePublished' in item:
-            book.year_of_publication = item.get('datePublished', '')
+            year = item.get('datePublished', '')
+            try:
+                book.year_of_publication = int(year) if str(year).isdigit() else year
+            except (ValueError, TypeError):
+                book.year_of_publication = year
 
         aggregate_rating = item.get('aggregateRating', {})
         if isinstance(aggregate_rating, dict):

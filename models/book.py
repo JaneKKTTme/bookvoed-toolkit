@@ -99,18 +99,30 @@ class Book:
             other special characters that need cleaning.
             Example: "1\xa0000" -> "1000" for edition field.
         """
+
+        def safe_float(value):
+            if value is None or value == '':
+                return None
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return None
+
+        def safe_int(value):
+            if value is None or value == '':
+                return None
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+
         self.name = kwargs.get('name', '')
         self.url = kwargs.get('url', '')
         self.author = kwargs.get('author', '')
 
-        new_price = kwargs.get('new_price', '')
-        self.new_price = float(new_price) if new_price else None
-
-        old_price = kwargs.get('old_price', '')
-        self.old_price = float(old_price) if old_price else None
-
-        discount = kwargs.get('discount', '')
-        self.discount = int(discount) if discount else None
+        self.new_price = safe_float(kwargs.get('new_price', ''))
+        self.old_price = safe_float(kwargs.get('old_price', ''))
+        self.discount = safe_int(kwargs.get('discount', ''))
 
         self.in_stock = kwargs.get('in_stock', False)
         self.availability_status = kwargs.get('availability_status', '')
@@ -126,25 +138,14 @@ class Book:
         self.section = kwargs.get('section', '')
         self.bookbinding = kwargs.get('bookbinding', '')
 
-        number_of_pages = kwargs.get('number_of_pages', '')
-        self.number_of_pages = int(number_of_pages) if number_of_pages else None
-
-        year_of_publication = kwargs.get('year_of_publication', '')
-        self.year_of_publication = int(year_of_publication) if year_of_publication else None
-
-        edition = kwargs.get('edition', '')
-        self.edition = int(edition) if edition else None
+        self.number_of_pages = safe_int(kwargs.get('number_of_pages', ''))
+        self.year_of_publication = safe_int(kwargs.get('year_of_publication', ''))
+        self.edition = safe_int(kwargs.get('edition', ''))
 
         self.size = kwargs.get('size', '')
-
-        weight = kwargs.get('weight', '')
-        self.weight = float(weight) if weight else None
-
-        rating = kwargs.get('rating', '')
-        self.rating = float(rating) if rating else None
-
-        review_count = kwargs.get('review_count', '')
-        self.review_count = int(review_count) if review_count else None
+        self.weight = safe_float(kwargs.get('weight', ''))
+        self.rating = safe_float(kwargs.get('rating', ''))
+        self.review_count = safe_int(kwargs.get('review_count', ''))
 
     def __repr__(self):
         """Return a string representation of the Book instance.

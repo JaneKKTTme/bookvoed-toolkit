@@ -36,6 +36,7 @@ class BookParser:
 
     CHAR_MAPPING = {
         'автор': 'author',
+        'жанр': 'genre',
         'поджанр': 'subgenre',
         'аудитория': 'audience',
         'тематика': 'subject',
@@ -256,13 +257,22 @@ class BookParser:
         if key == 'weight':
             # Weight formats from site: '320 г', '0.5 кг', '1 200 г'
             # Extracts first number (integer or decimal) from the string
-            match = re.search(r'(\d+(?:\.\d+)?)', value)
-            return float(match.group(1)) if match else None
+            match = re.search(r'(\d+(?:\.\d+)?)', value.replace('\xa0', ' ').replace(',', '.'))
+            if match:
+                weight_value = float(match.group(1))
+                if 'кг' in value.lower() and weight_value < 10:
+                    return weight_value * 1000
+                else:
+                    return weight_value
+            return None
         elif key == 'edition':
             # Edition may contain non-breaking spaces (\xa0) as thousand separators
             # Example: '1\xa0000' -> '1000'
             match = re.search(r'(\d+(?:\xA0\d+)?)', value)
             return int(match.group(1).replace('\xA0', '')) if match else None
+        elif key == 'number_of_pages':
+            match = re.search(r'(\d+)', value)
+            return int(match.group(1)) if match else None
         return value
 
     @staticmethod
