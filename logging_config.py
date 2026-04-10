@@ -6,7 +6,6 @@ and console output for the Bookvoed parser application.
 """
 
 import logging
-import sys
 from logging.handlers import RotatingFileHandler
 
 def setup_logging():

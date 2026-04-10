@@ -142,11 +142,14 @@ class BookvoedParser:
         Registers handlers for SIGTERM and SIGINT signals to trigger
         graceful shutdown. Not available on Windows platforms.
         """
+        loop = asyncio.get_event_loop()
+
+        def _shutdown():
+            # Schedule shutdown in the event loop thread
+            asyncio.ensure_future(self.shutdown(), loop=loop)
+
         for s in (signal.SIGTERM, signal.SIGINT):
-            loop = asyncio.get_event_loop()
-            # Note: add_signal_handler is not available on Windows
-            # That's why we check sys.platform != 'win32' in __init__
-            loop.add_signal_handler(s, lambda: asyncio.create_task(self.shutdown()))
+            loop.add_signal_handler(s, _shutdown)
 
     async def _parse_book_list(self, page: int) -> tuple[List[Book], bool]:
         """Parse a single catalog page and extract all book links.

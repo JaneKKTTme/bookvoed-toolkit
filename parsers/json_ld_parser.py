@@ -59,10 +59,14 @@ class JsonLdParser:
 
                 data = json.loads(script.string)
 
-                if isinstance(data, dict) and '@graph' in data:
-                    for item in data['@graph']:
-                        if item.get('@type') == 'Book':
-                            cls._extract_book_data(item, book)
+                if isinstance(data, dict):
+                    if '@graph' in data:
+                        for item in data['@graph']:
+                            if item.get('@type') == 'Book':
+                                cls._extract_book_data(item, book)
+                    elif data.get('@type') == 'Book':
+                        cls._extract_book_data(data, book)
+
             except (json.JSONDecodeError, AttributeError) as e:
                 logger.debug(f'Error parsing JSON-LD: {e}')
                 continue

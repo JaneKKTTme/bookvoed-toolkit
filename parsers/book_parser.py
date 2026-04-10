@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup, Tag
 
 from models.book import Book
 from parsers.json_ld_parser import JsonLdParser
+from typing import Optional
+
 from logging_config import logger
 
 

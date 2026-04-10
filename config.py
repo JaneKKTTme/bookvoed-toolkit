@@ -5,7 +5,6 @@ This module contains all configuration constants including service URLs,
 user agents, request settings, and connector configuration.
 """
 
-import random
 
 # Service URLs
 SERVICE = 'https://www.bookvoed.ru'

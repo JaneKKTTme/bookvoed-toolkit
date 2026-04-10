@@ -6,6 +6,7 @@ automatic retries, and proper error handling for web scraping.
 """
 
 import asyncio
+import certifi
 import random
 import ssl
 import time
@@ -74,9 +75,7 @@ class HTTPClient:
 			MITM attacks. Do not use this pattern for sensitive data or other
 			websites.
 		"""
-		context = ssl.create_default_context()
-		context.check_hostname = False
-		context.verify_mode = ssl.CERT_NONE
+		context = ssl.create_default_context(cafile=certifi.where())
 		return context
 
 	async def __aenter__(self):
@@ -146,6 +145,11 @@ class HTTPClient:
 					logger.error(f'Rate limit exceeded for {url}. Increasing delays...')
 					self.delay = min(self.delay * 1.5, 10)
 					continue
+				elif e.status >= 500:  # Server errors
+					wait_time = 2 ** attempt
+					logger.warning(f'Server error {e.status} for {url}, retrying in {wait_time}s')
+					await asyncio.sleep(wait_time)
+					continue  # Retry server errors
 				raise
 
 			except (aiohttp.ClientError, asyncio.TimeoutError) as e:
