@@ -1,11 +1,17 @@
 name: CI - Test Bookvoed Toolkit
 
 on:
-  push: 
-    branches-ignore:
-      - 'main'
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
   test:
@@ -13,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+      fail-fast: false
 
     steps:
       - name: Checkout code
@@ -32,4 +39,24 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pytest tests/ -v --disable-warnings
+          pytest tests/ -v --disable-warnings --tb=short
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ --cov=. --cov-report=xml --cov-report=term --cov-report=term-missing
+
+      - name: Upload coverage to Codecov (optional)
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittest
+          fail_ci_if_error: false
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-results-${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            .coverage
